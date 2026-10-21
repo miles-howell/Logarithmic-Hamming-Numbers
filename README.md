@@ -34,7 +34,7 @@ We then count how many valid $(i, j, k)$ combinations exist below a proposed log
 | **Best Use Case** | Small to moderate $n$ where exact integer multiplication is fast | Extremely large $n$ (e.g., $n > 10^{12}$) where linear time scaling becomes prohibitive |
 
 
-### Finding the boundary
+# Finding the boundary
 ---
 #### Equations
 **Geometric Volume Estimate (initial guess):** Calculates the initial limit $B_0$ by approximating $n$ points as the volume of a 3D tetrahedron, adjusted by half the sum of the logarithmic bases to account for the discrete nature of the integer grid.
