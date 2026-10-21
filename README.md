@@ -58,9 +58,9 @@ Calculates the initial limit $B_0$ by approximating $n$ points as the volume of 
 
 $$B_0 = \sqrt[3]{6n \ln(2) \ln(3) \ln(5)} - \frac{\ln(2) + \ln(3) + \ln(5)}{2}$$
 
-### Continuous Density Derivative (used as slope in the Newton-Raphson equation)
+### Continuous Density Derivative
 
-Represents the theoretical rate of change of the tetrahedron's volume at a given bound $B$, serving as the slope for the Newton-Raphson step.
+Represents the theoretical rate of change of the tetrahedron's volume at a given bound $B$, serving as the "slope" for the Newton-Raphson step.
 
 $$f'(B) = \frac{B^2}{2 \ln(2) \ln(3) \ln(5)}$$
 
