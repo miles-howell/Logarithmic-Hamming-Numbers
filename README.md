@@ -16,7 +16,7 @@ A geometric &amp; logarithmic solution to solving for the nth Hamming Number, al
 
 A Hamming Number is a positive integer whose only prime divisors are 2, 3, and 5. Expressed as $$H = 2^i \cdot 3^j \cdot 5^k$$. Standard approaches (like Dijkstra's algorithm) sequentially store every number in memory. This makes it impossible to calculate very high Hamming numbers, but isn't a problem for, say, $n<5000$. Calculating $n=1,000,000,000$ requires a different approach, which is outlined here.
 
-We translate the problem into a 3D geometry problem using logarithmic space. This allows us to compute massive values like $n=1,000,000,000$ in much more efficiently, see the below table.
+We translate the problem into a 3D geometry problem using logarithmic space. This allows us to compute massive values like $n=1,000,000,000$ much more efficiently, see the table below.
 By taking the natural logarithm of the standard Hamming equation we get an additive linear inequality: $$i \ln(2) + j \ln(3) + k \ln(5) \le B$$, where $B$ is some boundary beneath which is exactly $n$ Hamming numbers. Finding the $n$-th Hamming number is equivalent to finding a limit B such that exactly $n$ integer coordinate points $(i, j, k)$ sit at or below B. 
 
 We then count how many valid $(i, j, k)$ combinations exist below a proposed logarithmic bound B. Because the space below the boundary within the first octant forms a 3D tetrahedron (see [Desmos](https://www.desmos.com/3d/d7d7piepsc)), the **count(B)** function iterates through $k$ and $j$, quickly calculating the remaining valid values for $i$ in constant time using division. 
