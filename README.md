@@ -33,10 +33,6 @@ We then count how many valid $(i, j, k)$ combinations exist below a proposed log
 | **Parallelization** | Hard to parallelize due to iterative pointer state dependency | Highly parallelizable (independent range counts across lattice slices) |
 | **Best Use Case** | Small to moderate $n$ where exact integer multiplication is fast | Extremely large $n$ (e.g., $n > 10^{12}$) where linear time scaling becomes prohibitive |
 
-## Implementation Notes
-
-1. **Precision Calibration:** Validate logarithmic precision bounds using arbitrary-precision floating-point arithmetic (e.g., Python's `decimal` module or MPFR) to prevent off-by-one errors near lattice boundaries.
-2. **Benchmark Strategy:** Profile execution runtime against standard priority queue or pointer implementations across standard scale steps ($n = 10^6, 10^9, 10^{12}$).
 
 ### Finding the boundary
 ---
