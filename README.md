@@ -1,3 +1,4 @@
+
 # Logarithmic-Hamming-Numbers
 ## $$H = 2^i \cdot 3^j \cdot 5^k$$
 ---
@@ -10,6 +11,8 @@ A geometric &amp; logarithmic solution to solving for the nth Hamming Number, al
 [Codewars Kata](https://www.codewars.com/kata/526d84b98f428f14a60008da)
 
 ---
+
+<img width="1920" height="1080" alt="desmos" src="https://github.com/user-attachments/assets/06f7712d-846e-4a0e-92fb-5a673e78f24d" />
 
 A Hamming Number is a positive integer whose only prime divisors are 2, 3, and 5. Expressed as $$H = 2^i \cdot 3^j \cdot 5^k$$. Standard approaches (like Dijkstra's algorithm) sequentially store every number in memory. This makes it impossible to calculate very high Hamming numbers, but isn't a problem for, say, $n<5000$. Calculating $n=1,000,000,000$ requires a different approach, which is outlined here.
 
