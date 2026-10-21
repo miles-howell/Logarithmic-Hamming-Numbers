@@ -47,4 +47,4 @@ We then count how many valid $(i, j, k)$ combinations exist below a proposed log
 
 Instead of guessing $B$ sequentially, the **hamming(n)** function uses a geometric continuous volume estimate, refined with a Newton-Raphson step, and finally the Secant Method to rapidly converge on the precise boundary $B$ where the number of lattice points exactly equals $n$.
 
-Because floating-point math can introduce slight imprecision at these scales, the algorithm establishes a microscopic window '''[lo, hi]''' around the final bound $B$. Instead of generating all $n$ Hamming numbers, it only computes the tiny fraction of candidates that fall inside this specific band, sorts them, and returns the exact $n$-th value.
+Because floating-point math can introduce slight imprecision at these scales, the algorithm establishes a microscopic window ```[lo, hi]``` around the final bound $B$. Instead of generating all $n$ Hamming numbers, it only computes the tiny fraction of candidates that fall inside this specific band, sorts them, and returns the exact $n$-th value.
