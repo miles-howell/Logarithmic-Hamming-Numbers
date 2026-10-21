@@ -21,6 +21,8 @@ By taking the natural logarithm of the standard Hamming equation we get an addit
 
 We then count how many valid $(i, j, k)$ combinations exist below a proposed logarithmic bound B. Because the boundary forms a 3D tetrahedron (see [Desmos](https://www.desmos.com/3d/d7d7piepsc)), the **count(B)** function iterates through $k$ and $j$, quickly calculating the remaining valid values for $i$ in constant time using division. 
 
+Metric / FeatureDijkstra's Three-Pointer AlgorithmGeometric / Logarithmic ApproachTime Complexity$\mathcal{O}(n)$$\mathcal{O}(n^{2/3})$Space Complexity$\mathcal{O}(n)$$\mathcal{O}(1)$ or $\mathcal{O}(n^{2/3})$ auxiliary storageCore MechanismSequential generation using 3 priority queues/pointers ($2 \cdot H_i, 3 \cdot H_j, 5 \cdot H_k$)Counting/searching lattice points in 3D logarithmic coordinate space ($\log 2 \cdot i + \log 3 \cdot j + \log 5 \cdot k \le C$)Arithmetic PrecisionExact integer arithmetic (large integer dynamic types required for high $n$)Floating-point logarithmic bounds (requires arbitrary-precision floats or exact rational bounds for large $n$)Sequential DependencyStrictly sequential; requires evaluating all elements $H_1, \dots, H_{n-1}$ to find $H_n$Direct range evaluation; enables binary search directly for the $n$-th valueParallelizationHard to parallelize due to iterative pointer state dependencyHighly parallelizable (independent range counts across lattice slices)Best Use CaseSmall to moderate $n$ where integer multiplication is fast and simpleVery large $n$ (e.g., $n > 10^{12}$) where linear scaling becomes prohibitive
+
 ### Finding the boundary
 ---
 #### Equations
