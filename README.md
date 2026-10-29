@@ -22,7 +22,7 @@ $$H = 2^i \cdot 3^j \cdot 5^k$$
 
 Standard approaches (like Dijkstra's algorithm) sequentially store every number in memory. This makes it impossible to calculate very high Hamming numbers, but isn't a problem for, say, $n<5000$. Calculating $n=1,000,000,000$ requires a different approach, which is outlined here.
 
-We translate the problem into a 3D geometry problem using logarithmic space. This allows us to compute massive values like $n=1,000,000,000$ much more efficiently, see the table below.
+We translate the problem into a 3D geometry problem using logarithmic space. This allows us to compute massive values like $n=1,000,000,000$ much more efficiently (about 5 seconds in pure Python, see [Benchmarks](#benchmarks)).
 
 By taking the natural logarithm of the standard Hamming equation we get an additive linear inequality:
 
@@ -45,6 +45,33 @@ We then count how many valid $(i, j, k)$ combinations exist below a proposed log
 | **Sequential Dependency** | Strictly sequential; requires calculating $H_1, \dots, H_{n-1}$ to find $H_n$ | Direct range evaluation; enables binary search directly for the $n$-th value |
 | **Parallelization** | Hard to parallelize due to iterative pointer state dependency | Highly parallelizable (independent range counts across lattice slices) |
 | **Best Use Case** | Small to moderate $n$ where exact integer multiplication is fast | Extremely large $n$ (e.g., $n > 10^{12}$) where linear time scaling becomes prohibitive |
+
+---
+
+# Benchmarks
+
+Measured with [`benchmark.py`](benchmark.py) on Python 3.13 (CPython, single thread) on a 2.8 GHz Intel Xeon cloud VM. Times are the median of 5 runs (3 for $n \ge 10^8$, 1 for Dijkstra at $10^7$). Peak memory is the Python heap measured with `tracemalloc`. Dijkstra was not run past $10^7$, where it already needs almost 1 GB.
+
+| $n$ | Digits | Logarithmic | `count()` calls | Peak memory | Dijkstra | Dijkstra peak memory |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1,000 | 8 | 13.5 ms | 984 | 288 B | 0.28 ms | 38 KB |
+| 10,000 | 18 | 3.7 ms | 56 | 304 B | 3.6 ms | 422 KB |
+| 100,000 | 39 | 5.6 ms | 15 | 352 B | 42.6 ms | 5 MB |
+| 1,000,000 | 84 | 21.1 ms | 10 | 428 B | 606 ms | 63 MB |
+| 10,000,000 | 182 | 142 ms | 7 | 596 B | 18.4 s | 934 MB |
+| 100,000,000 | 392 | 645 ms | 7 | 1 KB | — | — |
+| 1,000,000,000 | 844 | 5.17 s | 9 | 8 KB | — | — |
+
+Correctness checks in the same script: `hamming(n)` matches Dijkstra for every $n$ from 1 to 20,000, and returns the known values $H_{1691} = 2125764000$, $H_{10^6} = 2^{55} \cdot 3^{47} \cdot 5^{64}$ and $H_{10^9} = 2^{1334} \cdot 3^{335} \cdot 5^{404}$.
+
+Takeaways:
+
+- The two methods cost about the same at $n = 10^4$. By $10^7$ the logarithmic method is about 130× faster and uses about a million times less memory.
+- For $n = 10^9$ the secant search converges in 5 counts (misses of −287, 2, 2, −1, then 0). 4 more counts build the bracket and the band. Each count takes about 0.55 s in pure Python, so the whole run takes about 5 s.
+- From $10^6$ up, total time grows 4.5×–8× for each 10× increase in $n$. The $n^{2/3}$ cost of a single count predicts 4.6×, and the rest comes from the number of count calls changing (7 at $10^8$, 9 at $10^9$).
+- For small $n$ the bracket-widening step (`lo -= 1e-5`) needs hundreds of counts, because neighbouring Hamming numbers are far apart in log space. That makes $n = 1000$ slower than $n = 10^4$.
+
+Run it yourself with `python benchmark.py` (about 7 minutes, mostly Dijkstra at $10^7$) or `python benchmark.py --quick` (up to $10^7$ for the logarithmic method, up to $10^6$ for Dijkstra).
 
 ---
 
