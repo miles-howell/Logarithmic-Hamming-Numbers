@@ -55,14 +55,19 @@ def hamming(n):
         B0, C0 = B1, C1
         B1, C1 = B_next, count(B_next)
 
-    # 4. Guarantee that n is trapped inside the band [lo, hi]
+    # 4. Guarantee that n is trapped inside the band [lo, hi].
+    # Steps double so sparse (small n) bands are reached in a few counts.
     lo, hi = B1 - 1e-8, B1 + 1e-8
-    while count(lo) >= n:
-        lo -= 1e-5
-    while count(hi) < n:
-        hi += 1e-5
-
+    step = 1e-5
     below = count(lo)
+    while below >= n:
+        lo -= step
+        step *= 2
+        below = count(lo)
+    step = 1e-5
+    while count(hi) < n:
+        hi += step
+        step *= 2
 
     # 5. Extract and sort only the candidate numbers inside the narrow band
     band = []
