@@ -97,6 +97,7 @@ KNOWN = {
 
 def main():
     quick = "--quick" in sys.argv
+    sys.set_int_max_str_digits(0)  # results past ~10^11 exceed the default 4300-digit str() limit
     print(f"Python {platform.python_version()} on {platform.processor() or platform.machine()}")
     print(f"count() backend: {hamming.backend}")
 
@@ -111,7 +112,7 @@ def main():
         assert hamming.hamming(n) == 2**i * 3**j * 5**k, n
         print(f"hamming({n:,}) = 2^{i} * 3^{j} * 5^{k}  ✓")
 
-    sizes = [10**3, 10**4, 10**5, 10**6, 10**7, 10**8, 10**9, 10**10, 10**11]
+    sizes = [10**3, 10**4, 10**5, 10**6, 10**7, 10**8, 10**9, 10**10, 10**11, 10**12]
     if quick:
         sizes = sizes[:5]
     dijkstra_max = 10**6 if quick else 10**7
