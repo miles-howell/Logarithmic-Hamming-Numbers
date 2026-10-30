@@ -50,21 +50,24 @@ We then count how many valid $(i, j, k)$ combinations exist below a proposed log
 
 # Benchmarks
 
-Measured with [`benchmark.py`](benchmark.py) on a Runpod CPU pod: AMD EPYC 9575F (up to 5.0 GHz), 8 vCPU, Python 3.13.18, using the C extension (see [Building the C extension](#building-the-c-extension)). Times are the median of 5 runs for $n \le 10^7$, 3 runs for $10^8$, and a single run from $10^9$ up. Peak memory is the Python heap measured with `tracemalloc` (skipped from $10^{13}$, where the run is not repeated). Dijkstra was not run past $10^7$, where it already needs almost 1 GB. Sizes below $10^6$ each finish in under 150 µs.
+Measured with [`benchmark.py`](benchmark.py) on a Runpod CPU pod: AMD EPYC 9575F (up to 5.0 GHz), 8 vCPU, Python 3.13.18, using the C extension (see [Building the C extension](#building-the-c-extension)). Times are the median of 5 runs for $n \le 10^7$, 3 runs for $10^8$, and a single run from $10^9$ up. Peak memory is the Python heap measured with `tracemalloc` (skipped from $10^{13}$, where the run is not repeated). Dijkstra was not run past $10^7$, where it already needs almost 1 GB.
 
 | $n$ | Digits | Logarithmic | `count()` calls | Peak memory | Exact rank check | Dijkstra | Dijkstra peak memory |
 | ---: | ---: | ---: | ---: | ---: | :---: | ---: | ---: |
-| 1,000,000 | 84 | 140 µs | 7 | 404 B | ✓ | 208 ms | 63 MB |
-| 10,000,000 | 182 | 504 µs | 5 | 388 B | ✓ | 2.34 s | 934 MB |
+| 1,000 | 8 | 7 µs | 13 | 228 B | ✓ | 133 µs | 38 KB |
+| 10,000 | 18 | 14 µs | 11 | 264 B | ✓ | 2.0 ms | 422 KB |
+| 100,000 | 39 | 37 µs | 8 | 248 B | ✓ | 18.2 ms | 5 MB |
+| 1,000,000 | 84 | 141 µs | 7 | 404 B | ✓ | 214.5 ms | 63 MB |
+| 10,000,000 | 182 | 505 µs | 5 | 388 B | ✓ | 2.42 s | 934 MB |
 | 100,000,000 | 392 | 2.2 ms | 5 | 892 B | ✓ | — | — |
 | 1,000,000,000 | 844 | 11.4 ms | 7 | 9 KB | ✓ | — | — |
 | 10,000,000,000 | 1,819 | 17.3 ms | 5 | 65 KB | ✓ | — | — |
-| 100,000,000,000 | 3,920 | 71.0 ms | 10 | 2 KB | ✓ | — | — |
-| 1,000,000,000,000 | 8,445 | 241 ms | 6 | 14 KB | ✓ | — | — |
+| 100,000,000,000 | 3,920 | 71.2 ms | 10 | 2 KB | ✓ | — | — |
+| 1,000,000,000,000 | 8,445 | 241.8 ms | 6 | 14 KB | ✓ | — | — |
 | 10,000,000,000,000 | 18,195 | 1.12 s | 6 | — | ✓ | — | — |
-| 100,000,000,000,000 | 39,199 | 6.12 s | 8 | — | ✓ | — | — |
-| 1,000,000,000,000,000 | 84,453 | 24.3 s | 6 | — | ✓ | — | — |
-| 10,000,000,000,000,000 | 181,949 | 107 s | 5 | — | ✓ | — | — |
+| 100,000,000,000,000 | 39,199 | 6.13 s | 8 | — | ✓ | — | — |
+| 1,000,000,000,000,000 | 84,453 | 24.43 s | 6 | — | ✓ | — | — |
+| 10,000,000,000,000,000 | 181,949 | 107.16 s | 5 | — | ✓ | — | — |
 
 ### How the results are checked
 
@@ -77,7 +80,7 @@ This check is what caught a real bug. An earlier version computed `count()` in 6
 
 Takeaways:
 
-- The logarithmic method is ahead at every size tested. At $n = 10^7$ it is about 4,600× faster than Dijkstra and uses about 2.4 million times less memory (388 B against 934 MB).
+- The logarithmic method is ahead at every size tested. At $n = 10^7$ it is about 4,800× faster than Dijkstra and uses about 2.4 million times less memory (388 B against 934 MB).
 - Time grows about 4–5.5× per 10× increase in $n$ from $10^{12}$ to $10^{16}$ (241 ms, 1.12 s, 6.12 s, 24.3 s, 107 s), close to the 4.6× that the $n^{2/3}$ cost of a count predicts.
 - From $10^6$ up a search needs only 5–10 counts: a geometric first guess, one Newton step, a few secant steps, then a bracket of about $\pm 10^{-8}$ around the result. The bracket widens in doubling steps, so small $n$, where neighbouring Hamming numbers are far apart in log space, needs a few more counts.
 - Memory stays tiny. Apart from the answer itself, the only thing held is the small band of candidate numbers around it.
