@@ -71,7 +71,7 @@ Takeaways:
 - The $n^{2/3}$ cost of a single count predicts 4.6× more time per count for each 10× increase in $n$. Measured per count, it grows 4.5× from $10^6$ to $10^7$ and 5.9×–7.8× at larger sizes.
 - The bracket around the secant result widens in steps that double each time, so small $n$, where neighbouring Hamming numbers are far apart in log space, needs only 14 counts at $n = 1000$.
 
-Optional: build the C `count()` and band walk with `python setup.py build_ext --inplace` (needs a C compiler and Python headers). `hamming.py` falls back to pure Python if it is missing, and `benchmark.py` prints which backend ran. The numbers above were measured with the pure-Python `count()`.
+Optional: build the C `count()` and band walk with `python setup.py build_ext --inplace` (needs a C compiler and Python headers). `hamming.py` falls back to pure Python if it is missing, and `benchmark.py` prints which backend ran. The C version uses 80-bit `long double` (x86-64, GCC with OpenMP); the pure-Python fallback uses `double` and is only reliable up to about $n = 10^{12}$, because past that neighbouring Hamming numbers are closer together than double rounding error. `_hamming_exact.c` is an independent exact rank checker (`exact_count(i, j, k)`), which `benchmark.py` runs on every result. The table above was measured with the pure-Python `count()`.
 
 Run it yourself with `python benchmark.py` (about 7 minutes, mostly Dijkstra at $10^7$) or `python benchmark.py --quick` (up to $10^7$ for the logarithmic method, up to $10^6$ for Dijkstra).
 

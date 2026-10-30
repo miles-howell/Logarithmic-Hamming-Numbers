@@ -1,4 +1,9 @@
+import platform
+
 from setuptools import Extension, setup
+
+# SSE3 makes long double -> integer conversion a single fisttp instead of a control-word dance.
+X86 = platform.machine().lower() in ("x86_64", "amd64")
 
 setup(
     name="hamming-count",
@@ -7,8 +12,9 @@ setup(
         Extension(
             "_hamming_count",
             ["_hamming_count.c"],
-            # Keep IEEE rounding identical to the pure-Python count().
-            extra_compile_args=["-O2", "-ffp-contract=off"],
+            # 80-bit long double arithmetic (x86-64 only); OpenMP for the cell loops.
+            extra_compile_args=["-O2", "-ffp-contract=off", "-fopenmp"] + (["-msse3"] if X86 else []),
+            extra_link_args=["-fopenmp"],
             libraries=["m"],
         ),
         # Independent exact rank checker (x86-64, needs OpenMP + libquadmath); optional.
