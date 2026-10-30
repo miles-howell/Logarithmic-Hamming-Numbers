@@ -76,8 +76,6 @@ Every row is verified two independent ways in the same script:
 - `hamming(n)` matches Dijkstra for every $n$ from 1 to 20,000, and returns the known values $H_{1691} = 2125764000$, $H_{10^6} = 2^{55} \cdot 3^{47} \cdot 5^{64}$ and $H_{10^9} = 2^{1334} \cdot 3^{335} \cdot 5^{404}$.
 - The **Exact rank check** column runs `_hamming_exact.c`, which takes the exponents $(i, j, k)$ of the result and counts every $(i, j, k)$ with $2^i 3^j 5^k \le$ the result. It does not reuse the floating-point code it is auditing: it compares exponent-weighted $\log_2$ values in 80-bit `long double`, redoes any cell that lands near an integer boundary in 128-bit quad precision, and raises an error instead of guessing if a cell still cannot be decided. A ✓ means the rank is exactly $n$. For $n = 10^9$ to $10^{11}$ the checker's verdict was also confirmed by an independent pure-integer count, with no floating point.
 
-This check is what caught a real bug. An earlier version computed `count()` in 64-bit `double` with repeated subtraction. From about $n = 10^{13}$ neighbouring Hamming numbers are closer together in log space (about $2.45 / B^2$) than double rounding error, and the returned value was wrong: its rank was $n + 6$ at $10^{13}$ and $n + 210$ at $10^{14}$. The C code now uses `long double` and computes each remainder directly as $B - k \ln 5 - j \ln 3$ instead of subtracting repeatedly. The pure-Python fallback still uses `double`, so it is only reliable up to about $n = 10^{12}$.
-
 Takeaways:
 
 - The logarithmic method is ahead at every size tested. At $n = 10^7$ it is about 4,800× faster than Dijkstra and uses about 2.4 million times less memory (388 B against 934 MB).
