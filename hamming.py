@@ -5,7 +5,7 @@ a, b, c = math.log(2), math.log(3), math.log(5)
 inv_a, inv_b, inv_c = 1.0 / a, 1.0 / b, 1.0 / c
 density_factor = 2.0 * a * b * c  # 2 * a * b * c for Newton density fallback
 
-def count(B):
+def _count_py(B):
     """Inlined logarithmic point counter with floating-point precision protection."""
     if B < 0:
         return 0
@@ -20,8 +20,55 @@ def count(B):
         rem_k -= c
     return total
 
+def _band_py(lo, hi):
+    """(value, (i, j, k)) for Hamming numbers with lo < ln(value) <= hi, unsorted."""
+    band = []
+    k = 0
+    p5 = 1
+    rem_k_hi, rem_k_lo = hi, lo
+
+    while rem_k_hi >= 0:
+        j = 0
+        p35 = p5
+        rem_j_hi, rem_j_lo = rem_k_hi, rem_k_lo
+
+        while rem_j_hi >= 0:
+            top_hi = int(rem_j_hi * inv_a + 1e-11)
+            top_lo = int(rem_j_lo * inv_a + 1e-11) if rem_j_lo >= 0 else -1
+
+            for i in range(top_lo + 1, top_hi + 1):
+                band.append((p35 << i, (i, j, k)))  # Fast power of 2 via bitwise shift
+
+            j += 1
+            p35 *= 3
+            rem_j_hi -= b
+            rem_j_lo -= b
+
+        k += 1
+        p5 *= 5
+        rem_k_hi -= c
+        rem_k_lo -= c
+    return band
+
+# Prefer the C extension (python setup.py build_ext --inplace); count() and the band walk return identical results.
+try:
+    from _hamming_count import count, band_terms
+
+    def _band(lo, hi):
+        return [((3**j * 5**k) << i, (i, j, k)) for j, k, i in band_terms(lo, hi)]
+
+    backend = "C extension"
+except ImportError:
+    count = _count_py
+    _band = _band_py
+    backend = "pure Python"
+
 def hamming(n):
     """Calculates the 1-indexed n-th Hamming number using the Secant Method."""
+    return hamming_with_exponents(n)[0]
+
+def hamming_with_exponents(n):
+    """Returns (value, (i, j, k)) with value == 2**i * 3**j * 5**k the n-th Hamming number."""
     if n <= 0:
         raise ValueError("n must be a positive integer.")
 
@@ -56,43 +103,26 @@ def hamming(n):
         B1, C1 = B_next, count(B_next)
 
     # 4. Guarantee that n is trapped inside the band [lo, hi].
+    # C1 = count(B1) is already known, so it supplies one side of the band for free.
     # Steps double so sparse (small n) bands are reached in a few counts.
-    lo, hi = B1 - 1e-8, B1 + 1e-8
-    step = 1e-5
-    below = count(lo)
-    while below >= n:
-        lo -= step
-        step *= 2
+    if C1 >= n:
+        hi = B1
+        lo = B1 - 1e-8
+        step = 1e-5
         below = count(lo)
-    step = 1e-5
-    while count(hi) < n:
-        hi += step
-        step *= 2
+        while below >= n:
+            lo -= step
+            step *= 2
+            below = count(lo)
+    else:
+        lo, below = B1, C1
+        hi = B1 + 1e-8
+        step = 1e-5
+        while count(hi) < n:
+            hi += step
+            step *= 2
 
     # 5. Extract and sort only the candidate numbers inside the narrow band
-    band = []
-    k = 0
-    rem_k_hi, rem_k_lo = hi, lo
-
-    while rem_k_hi >= 0:
-        j = 0
-        rem_j_hi, rem_j_lo = rem_k_hi, rem_k_lo
-
-        while rem_j_hi >= 0:
-            top_hi = int(rem_j_hi * inv_a + 1e-11) if rem_j_hi >= 0 else -1
-            top_lo = int(rem_j_lo * inv_a + 1e-11) if rem_j_lo >= 0 else -1
-
-            p35 = (3**j) * (5**k)
-            for i in range(top_lo + 1, top_hi + 1):
-                band.append(p35 << i)  # Fast power of 2 via bitwise shift
-
-            j += 1
-            rem_j_hi -= b
-            rem_j_lo -= b
-
-        k += 1
-        rem_k_hi -= c
-        rem_k_lo -= c
-
+    band = _band(lo, hi)
     band.sort()
     return band[n - below - 1]

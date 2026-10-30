@@ -22,7 +22,7 @@ $$H = 2^i \cdot 3^j \cdot 5^k$$
 
 Standard approaches (like Dijkstra's algorithm) sequentially store every number in memory. This makes it impossible to calculate very high Hamming numbers, but isn't a problem for, say, $n<5000$. Calculating $n=1,000,000,000$ requires a different approach, which is outlined here.
 
-We translate the problem into a 3D geometry problem using logarithmic space. This allows us to compute massive values like $n=1,000,000,000$ much more efficiently (about 3.6 seconds in pure Python, see [Benchmarks](#benchmarks)).
+We translate the problem into a 3D geometry problem using logarithmic space. This allows us to compute massive values like $n=1,000,000,000$ much more efficiently: with the C extension the $10^9$-th Hamming number takes about 11 ms, and the $10^{16}$-th (a 181,949-digit number) takes under two minutes, with every result verified exactly (see [Benchmarks](#benchmarks)).
 
 By taking the natural logarithm of the standard Hamming equation we get an additive linear inequality:
 
@@ -41,7 +41,7 @@ We then count how many valid $(i, j, k)$ combinations exist below a proposed log
 | **Time Complexity** | $\mathcal{O}(n)$ | $\mathcal{O}(n^{2/3})$ |
 | **Space Complexity** | $\mathcal{O}(n)$ | $\mathcal{O}(1)$ or $\mathcal{O}(n^{2/3})$ auxiliary storage |
 | **Core Mechanism** | Sequential generation using 3 pointers/queues ($2 \cdot H_i, 3 \cdot H_j, 5 \cdot H_k$) | Counting and searching lattice points in 3D logarithmic space ($\log 2 \cdot i + \log 3 \cdot j + \log 5 \cdot k \le C$) |
-| **Arithmetic Precision** | Exact integer arithmetic (requires big integer types for high $n$) | Floating-point logarithmic bounds (requires arbitrary-precision floats or exact rational bounds for large $n$) |
+| **Arithmetic Precision** | Exact integer arithmetic (requires big integer types for high $n$) | Floating-point logarithmic bounds: 64-bit `double` is reliable to about $n = 10^{12}$, 80-bit `long double` to at least $10^{16}$ (checked exactly). The final answer is built with exact integers either way |
 | **Sequential Dependency** | Strictly sequential; requires calculating $H_1, \dots, H_{n-1}$ to find $H_n$ | Direct range evaluation; enables binary search directly for the $n$-th value |
 | **Parallelization** | Hard to parallelize due to iterative pointer state dependency | Highly parallelizable (independent range counts across lattice slices) |
 | **Best Use Case** | Small to moderate $n$ where exact integer multiplication is fast | Extremely large $n$ (e.g., $n > 10^{12}$) where linear time scaling becomes prohibitive |
@@ -50,28 +50,55 @@ We then count how many valid $(i, j, k)$ combinations exist below a proposed log
 
 # Benchmarks
 
-Measured with [`benchmark.py`](benchmark.py) on Python 3.13 (CPython, single thread) on a 2.1 GHz Intel Xeon cloud VM. Times are the median of 5 runs (3 for $n \ge 10^8$, 1 for Dijkstra at $10^7$). Peak memory is the Python heap measured with `tracemalloc`. Dijkstra was not run past $10^7$, where it already needs almost 1 GB.
+Measured with [`benchmark.py`](benchmark.py) on a Runpod CPU pod: AMD EPYC 9575F (up to 5.0 GHz), 8 vCPU, Python 3.13.18, using the C extension (see [Building the C extension](#building-the-c-extension)). Times are the median of 5 runs for $n \le 10^7$, 3 runs for $10^8$, and a single run from $10^9$ up. Peak memory is the Python heap measured with `tracemalloc` (skipped from $10^{13}$, where the run is not repeated). Dijkstra was not run past $10^7$, where it already needs almost 1 GB.
 
-| $n$ | Digits | Logarithmic | `count()` calls | Peak memory | Dijkstra | Dijkstra peak memory |
-| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 1,000 | 8 | 162 µs | 14 | 288 B | 222 µs | 38 KB |
-| 10,000 | 18 | 658 µs | 12 | 304 B | 2.5 ms | 422 KB |
-| 100,000 | 39 | 2.9 ms | 9 | 352 B | 30.9 ms | 5 MB |
-| 1,000,000 | 84 | 17.2 ms | 8 | 492 B | 510 ms | 63 MB |
-| 10,000,000 | 182 | 58.5 ms | 6 | 596 B | 7.21 s | 934 MB |
-| 100,000,000 | 392 | 458 ms | 6 | 1 KB | — | — |
-| 1,000,000,000 | 844 | 3.60 s | 8 | 8 KB | — | — |
+| $n$ | Digits | Logarithmic | `count()` calls | Peak memory | Exact rank check | Dijkstra | Dijkstra peak memory |
+| ---: | ---: | ---: | ---: | ---: | :---: | ---: | ---: |
+| 1,000 | 8 | 7 µs | 13 | 228 B | ✓ | 133 µs | 38 KB |
+| 10,000 | 18 | 14 µs | 11 | 264 B | ✓ | 2.0 ms | 422 KB |
+| 100,000 | 39 | 37 µs | 8 | 248 B | ✓ | 18.2 ms | 5 MB |
+| 1,000,000 | 84 | 141 µs | 7 | 404 B | ✓ | 214.5 ms | 63 MB |
+| 10,000,000 | 182 | 505 µs | 5 | 388 B | ✓ | 2.42 s | 934 MB |
+| 100,000,000 | 392 | 2.2 ms | 5 | 892 B | ✓ | — | — |
+| 1,000,000,000 | 844 | 11.4 ms | 7 | 9 KB | ✓ | — | — |
+| 10,000,000,000 | 1,819 | 17.3 ms | 5 | 65 KB | ✓ | — | — |
+| 100,000,000,000 | 3,920 | 71.2 ms | 10 | 2 KB | ✓ | — | — |
+| 1,000,000,000,000 | 8,445 | 241.8 ms | 6 | 14 KB | ✓ | — | — |
+| 10,000,000,000,000 | 18,195 | 1.12 s | 6 | — | ✓ | — | — |
+| 100,000,000,000,000 | 39,199 | 6.13 s | 8 | — | ✓ | — | — |
+| 1,000,000,000,000,000 | 84,453 | 24.43 s | 6 | — | ✓ | — | — |
+| 10,000,000,000,000,000 | 181,949 | 107.16 s | 5 | — | ✓ | — | — |
 
-Correctness checks in the same script: `hamming(n)` matches Dijkstra for every $n$ from 1 to 20,000, and returns the known values $H_{1691} = 2125764000$, $H_{10^6} = 2^{55} \cdot 3^{47} \cdot 5^{64}$ and $H_{10^9} = 2^{1334} \cdot 3^{335} \cdot 5^{404}$.
+### How the results are checked
+
+Every row is verified two independent ways in the same script:
+
+- `hamming(n)` matches Dijkstra for every $n$ from 1 to 20,000, and returns the known values $H_{1691} = 2125764000$, $H_{10^6} = 2^{55} \cdot 3^{47} \cdot 5^{64}$ and $H_{10^9} = 2^{1334} \cdot 3^{335} \cdot 5^{404}$.
+- The **Exact rank check** column runs `_hamming_exact.c`, which takes the exponents $(i, j, k)$ of the result and counts every $(i, j, k)$ with $2^i 3^j 5^k \le$ the result. It does not reuse the floating-point code it is auditing: it compares exponent-weighted $\log_2$ values in 80-bit `long double`, redoes any cell that lands near an integer boundary in 128-bit quad precision, and raises an error instead of guessing if a cell still cannot be decided. A ✓ means the rank is exactly $n$. For $n = 10^9$ to $10^{11}$ the checker's verdict was also confirmed by an independent pure-integer count, with no floating point.
+
+This check is what caught a real bug. An earlier version computed `count()` in 64-bit `double` with repeated subtraction. From about $n = 10^{13}$ neighbouring Hamming numbers are closer together in log space (about $2.45 / B^2$) than double rounding error, and the returned value was wrong: its rank was $n + 6$ at $10^{13}$ and $n + 210$ at $10^{14}$. The C code now uses `long double` and computes each remainder directly as $B - k \ln 5 - j \ln 3$ instead of subtracting repeatedly. The pure-Python fallback still uses `double`, so it is only reliable up to about $n = 10^{12}$.
 
 Takeaways:
 
-- The logarithmic method is ahead at every size tested. At $n = 1000$ the two are close (162 µs against 222 µs). By $10^7$ the logarithmic method is about 120× faster and uses about a million times less memory.
-- For $n = 10^9$ the secant search converges in 5 counts (misses of −287, 2, 2, −1, then 0). 3 more counts build the bracket and the band. Each count takes about 0.45 s in pure Python, so the whole run takes about 3.6 s.
-- The $n^{2/3}$ cost of a single count predicts 4.6× more time per count for each 10× increase in $n$. Measured per count, it grows 4.5× from $10^6$ to $10^7$ and 5.9×–7.8× at larger sizes.
-- The bracket around the secant result widens in steps that double each time, so small $n$, where neighbouring Hamming numbers are far apart in log space, needs only 14 counts at $n = 1000$.
+- The logarithmic method is ahead at every size tested. At $n = 10^7$ it is about 4,800× faster than Dijkstra and uses about 2.4 million times less memory (388 B against 934 MB).
+- Time grows about 4–5.5× per 10× increase in $n$ from $10^{12}$ to $10^{16}$ (241 ms, 1.12 s, 6.12 s, 24.3 s, 107 s), close to the 4.6× that the $n^{2/3}$ cost of a count predicts.
+- From $10^6$ up a search needs only 5–10 counts: a geometric first guess, one Newton step, a few secant steps, then a bracket of about $\pm 10^{-8}$ around the result. The bracket widens in doubling steps, so small $n$, where neighbouring Hamming numbers are far apart in log space, needs a few more counts.
+- Memory stays tiny. Apart from the answer itself, the only thing held is the small band of candidate numbers around it.
 
-Run it yourself with `python benchmark.py` (about 7 minutes, mostly Dijkstra at $10^7$) or `python benchmark.py --quick` (up to $10^7$ for the logarithmic method, up to $10^6$ for Dijkstra).
+Run it yourself with `python benchmark.py` (the Dijkstra reference at $10^7$ dominates the small sizes, and the $10^{16}$ row takes about three minutes on 8 cores with the exact check) or `python benchmark.py --quick` (up to $10^7$ for the logarithmic method, up to $10^6$ for Dijkstra).
+
+## Building the C extension
+
+```bash
+python setup.py build_ext --inplace
+```
+
+This needs a C compiler and the Python headers. It builds two modules:
+
+- `_hamming_count`: `count()` and the band walk, in 80-bit `long double` and parallelized with OpenMP (set `OMP_NUM_THREADS` to limit threads). x86-64 and GCC are assumed.
+- `_hamming_exact`: the exact rank checker `exact_count(i, j, k)`. It needs OpenMP and `libquadmath`, and it is optional.
+
+`hamming.py` falls back to pure Python if the extension is missing (reliable only to about $n = 10^{12}$), and `benchmark.py` prints which backend ran.
 
 ---
 

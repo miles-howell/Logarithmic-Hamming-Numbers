@@ -1,6 +1,8 @@
 """Benchmarks hamming.hamming(n) against Dijkstra's three-pointer method.
 
 Usage: python benchmark.py [--quick]
+
+Build the C count() first for speed: python setup.py build_ext --inplace
 """
 import platform
 import statistics
@@ -9,6 +11,11 @@ import time
 import tracemalloc
 
 import hamming
+
+try:
+    from _hamming_exact import exact_count
+except ImportError:
+    exact_count = None
 
 
 def dijkstra_sequence(n):
@@ -45,17 +52,32 @@ def timed(fn, n, repeats):
     return result, statistics.median(times)
 
 
-def peak_memory(fn, n):
-    """Peak Python heap allocation in bytes during one call."""
+def instrumented_run(fn, n):
+    """One extra call that records (peak Python heap bytes, number of count(B) evaluations).
+
+    Kept separate from the timed runs because tracemalloc slows Python down.
+    """
+    original = hamming.count
+    calls = 0
+
+    def wrapper(B):
+        nonlocal calls
+        calls += 1
+        return original(B)
+
+    hamming.count = wrapper
     tracemalloc.start()
-    fn(n)
-    _, peak = tracemalloc.get_traced_memory()
-    tracemalloc.stop()
-    return peak
+    try:
+        fn(n)
+        _, peak = tracemalloc.get_traced_memory()
+    finally:
+        tracemalloc.stop()
+        hamming.count = original
+    return peak, calls
 
 
-def count_calls(n):
-    """Number of count(B) evaluations hamming(n) makes."""
+def single_counted_run(fn, n):
+    """One timed call that also counts count(B) evaluations (no tracemalloc, no extra run)."""
     original = hamming.count
     calls = 0
 
@@ -66,10 +88,26 @@ def count_calls(n):
 
     hamming.count = wrapper
     try:
-        hamming.hamming(n)
+        start = time.perf_counter()
+        result = fn(n)
+        elapsed = time.perf_counter() - start
     finally:
         hamming.count = original
-    return calls
+    return result, elapsed, calls
+
+
+def rank_check(n, exps):
+    """Exact rank of 2^i 3^j 5^k via the independent C checker: a short verdict string."""
+    if exact_count is None:
+        return "—"
+    start = time.perf_counter()
+    try:
+        rank = exact_count(*exps)
+    except ValueError as e:
+        return f"error: {e}"
+    elapsed = time.perf_counter() - start
+    verdict = "✓" if rank == n else f"✗ rank is n{rank - n:+d}"
+    return f"{verdict} ({fmt_time(elapsed)})"
 
 
 def fmt_time(s):
@@ -98,7 +136,9 @@ KNOWN = {
 
 def main():
     quick = "--quick" in sys.argv
+    sys.set_int_max_str_digits(0)  # results past ~10^11 exceed the default 4300-digit str() limit
     print(f"Python {platform.python_version()} on {platform.processor() or platform.machine()}")
+    print(f"count() backend: {hamming.backend}; exact rank checker: {'available' if exact_count else 'not built'}")
 
     # Correctness: every n up to N against Dijkstra, plus known large values
     N = 5000 if quick else 20000
@@ -111,27 +151,39 @@ def main():
         assert hamming.hamming(n) == 2**i * 3**j * 5**k, n
         print(f"hamming({n:,}) = 2^{i} * 3^{j} * 5^{k}  ✓")
 
-    sizes = [10**3, 10**4, 10**5, 10**6, 10**7, 10**8, 10**9]
+    sizes = [10**3, 10**4, 10**5, 10**6, 10**7, 10**8, 10**9, 10**10, 10**11, 10**12,
+             10**13, 10**14, 10**15, 10**16]
     if quick:
         sizes = sizes[:5]
     dijkstra_max = 10**6 if quick else 10**7
+    # From here a second (instrumented) run would double an already long run, so count
+    # calls during the single timed run and skip the tracemalloc memory column.
+    single_run_min = 10**13
 
     print()
-    print("| n | Digits | Logarithmic | count() calls | Peak memory | Dijkstra | Dijkstra peak memory |")
-    print("| ---: | ---: | ---: | ---: | ---: | ---: | ---: |")
+    print("| n | Digits | Logarithmic | count() calls | Peak memory | Exact rank check | Dijkstra | Dijkstra peak memory |")
+    print("| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |")
     for n in sizes:
-        repeats = 5 if n <= 10**7 else 3
-        result, t = timed(hamming.hamming, n, repeats)
-        mem = peak_memory(hamming.hamming, n)
-        calls = count_calls(n)
+        try:
+            if n < single_run_min:
+                repeats = 5 if n <= 10**7 else 3 if n < 10**9 else 1
+                (result, exps), t = timed(hamming.hamming_with_exponents, n, repeats)
+                mem, calls = instrumented_run(hamming.hamming_with_exponents, n)
+                mem = fmt_bytes(mem)
+            else:
+                (result, exps), t, calls = single_counted_run(hamming.hamming_with_exponents, n)
+                mem = "—"
+        except Exception as e:  # e.g. float rounding left the n-th value outside the band
+            print(f"| {n:,} | — | failed: {type(e).__name__}: {e} | — | — | — | — | — |", flush=True)
+            continue
         if n <= dijkstra_max:
             d_result, d_t = timed(dijkstra, n, 3 if n <= 10**6 else 1)
             assert d_result == result
-            d_mem = peak_memory(dijkstra, n)
+            d_mem = instrumented_run(dijkstra, n)[0]
             d_cols = f"{fmt_time(d_t)} | {fmt_bytes(d_mem)}"
         else:
             d_cols = "— | —"
-        print(f"| {n:,} | {len(str(result)):,} | {fmt_time(t)} | {calls} | {fmt_bytes(mem)} | {d_cols} |",
+        print(f"| {n:,} | {len(str(result)):,} | {fmt_time(t)} | {calls} | {mem} | {rank_check(n, exps)} | {d_cols} |",
               flush=True)
 
 
