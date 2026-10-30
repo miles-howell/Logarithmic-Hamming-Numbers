@@ -38,7 +38,52 @@ hamming_count(PyObject *self, PyObject *arg)
     return PyLong_FromUnsignedLongLong(total);
 }
 
+/* band_terms(lo, hi): the (j, k, i) exponents of every number 2^i 3^j 5^k with
+ * lo < ln(value) <= hi. Mirrors the pure-Python extraction loop cell for cell. */
+static PyObject *
+hamming_band_terms(PyObject *self, PyObject *args)
+{
+    double lo, hi;
+    if (!PyArg_ParseTuple(args, "dd", &lo, &hi))
+        return NULL;
+
+    const double b = log(3.0), c = log(5.0);
+    const double inv_a = 1.0 / log(2.0);
+    PyObject *out = PyList_New(0);
+    if (out == NULL)
+        return NULL;
+
+    long k = 0;
+    double rem_k_hi = hi, rem_k_lo = lo;
+    while (rem_k_hi >= 0) {
+        long j = 0;
+        double rem_j_hi = rem_k_hi, rem_j_lo = rem_k_lo;
+        while (rem_j_hi >= 0) {
+            long top_hi = (long)(rem_j_hi * inv_a + 1e-11);
+            long top_lo = rem_j_lo >= 0 ? (long)(rem_j_lo * inv_a + 1e-11) : -1;
+            for (long i = top_lo + 1; i <= top_hi; i++) {
+                PyObject *t = Py_BuildValue("(lll)", j, k, i);
+                if (t == NULL || PyList_Append(out, t) < 0) {
+                    Py_XDECREF(t);
+                    Py_DECREF(out);
+                    return NULL;
+                }
+                Py_DECREF(t);
+            }
+            j++;
+            rem_j_hi -= b;
+            rem_j_lo -= b;
+        }
+        k++;
+        rem_k_hi -= c;
+        rem_k_lo -= c;
+    }
+    return out;
+}
+
 static PyMethodDef methods[] = {
+    {"band_terms", hamming_band_terms, METH_VARARGS,
+     "band_terms(lo, hi): (j, k, i) exponents of Hamming numbers with lo < ln <= hi."},
     {"count", hamming_count, METH_O,
      "count(B): number of Hamming numbers whose natural log is <= B."},
     {NULL, NULL, 0, NULL}

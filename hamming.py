@@ -20,12 +20,43 @@ def _count_py(B):
         rem_k -= c
     return total
 
-# Prefer the C extension (python setup.py build_ext --inplace); it returns identical counts.
+def _band_py(lo, hi):
+    """Hamming numbers with lo < ln(value) <= hi, unsorted."""
+    band = []
+    p5 = 1
+    rem_k_hi, rem_k_lo = hi, lo
+
+    while rem_k_hi >= 0:
+        p35 = p5
+        rem_j_hi, rem_j_lo = rem_k_hi, rem_k_lo
+
+        while rem_j_hi >= 0:
+            top_hi = int(rem_j_hi * inv_a + 1e-11)
+            top_lo = int(rem_j_lo * inv_a + 1e-11) if rem_j_lo >= 0 else -1
+
+            for i in range(top_lo + 1, top_hi + 1):
+                band.append(p35 << i)  # Fast power of 2 via bitwise shift
+
+            p35 *= 3
+            rem_j_hi -= b
+            rem_j_lo -= b
+
+        p5 *= 5
+        rem_k_hi -= c
+        rem_k_lo -= c
+    return band
+
+# Prefer the C extension (python setup.py build_ext --inplace); count() and the band walk return identical results.
 try:
-    from _hamming_count import count
+    from _hamming_count import count, band_terms
+
+    def _band(lo, hi):
+        return [(3**j * 5**k) << i for j, k, i in band_terms(lo, hi)]
+
     backend = "C extension"
 except ImportError:
     count = _count_py
+    _band = _band_py
     backend = "pure Python"
 
 def hamming(n):
@@ -83,32 +114,7 @@ def hamming(n):
             hi += step
             step *= 2
 
-    # 5. Extract and sort only the candidate numbers inside the narrow band.
-    # 3^j * 5^k is built incrementally and only used for cells that hold band members.
-    band = []
-    k = 0
-    p5 = 1
-    rem_k_hi, rem_k_lo = hi, lo
-
-    while rem_k_hi >= 0:
-        p35 = p5
-        rem_j_hi, rem_j_lo = rem_k_hi, rem_k_lo
-
-        while rem_j_hi >= 0:
-            top_hi = int(rem_j_hi * inv_a + 1e-11)
-            top_lo = int(rem_j_lo * inv_a + 1e-11) if rem_j_lo >= 0 else -1
-
-            for i in range(top_lo + 1, top_hi + 1):
-                band.append(p35 << i)  # Fast power of 2 via bitwise shift
-
-            p35 *= 3
-            rem_j_hi -= b
-            rem_j_lo -= b
-
-        p5 *= 5
-        k += 1
-        rem_k_hi -= c
-        rem_k_lo -= c
-
+    # 5. Extract and sort only the candidate numbers inside the narrow band
+    band = _band(lo, hi)
     band.sort()
     return band[n - below - 1]
