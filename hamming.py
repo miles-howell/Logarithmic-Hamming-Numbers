@@ -5,7 +5,7 @@ a, b, c = math.log(2), math.log(3), math.log(5)
 inv_a, inv_b, inv_c = 1.0 / a, 1.0 / b, 1.0 / c
 density_factor = 2.0 * a * b * c  # 2 * a * b * c for Newton density fallback
 
-def count(B):
+def _count_py(B):
     """Inlined logarithmic point counter with floating-point precision protection."""
     if B < 0:
         return 0
@@ -19,6 +19,14 @@ def count(B):
             rem_j -= b
         rem_k -= c
     return total
+
+# Prefer the C extension (python setup.py build_ext --inplace); it returns identical counts.
+try:
+    from _hamming_count import count
+    backend = "C extension"
+except ImportError:
+    count = _count_py
+    backend = "pure Python"
 
 def hamming(n):
     """Calculates the 1-indexed n-th Hamming number using the Secant Method."""

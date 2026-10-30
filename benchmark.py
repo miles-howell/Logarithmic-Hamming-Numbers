@@ -1,6 +1,8 @@
 """Benchmarks hamming.hamming(n) against Dijkstra's three-pointer method.
 
 Usage: python benchmark.py [--quick]
+
+Build the C count() first for speed: python setup.py build_ext --inplace
 """
 import platform
 import statistics
@@ -45,17 +47,11 @@ def timed(fn, n, repeats):
     return result, statistics.median(times)
 
 
-def peak_memory(fn, n):
-    """Peak Python heap allocation in bytes during one call."""
-    tracemalloc.start()
-    fn(n)
-    _, peak = tracemalloc.get_traced_memory()
-    tracemalloc.stop()
-    return peak
+def instrumented_run(fn, n):
+    """One extra call that records (peak Python heap bytes, number of count(B) evaluations).
 
-
-def count_calls(n):
-    """Number of count(B) evaluations hamming(n) makes."""
+    Kept separate from the timed runs because tracemalloc slows Python down.
+    """
     original = hamming.count
     calls = 0
 
@@ -65,11 +61,14 @@ def count_calls(n):
         return original(B)
 
     hamming.count = wrapper
+    tracemalloc.start()
     try:
-        hamming.hamming(n)
+        fn(n)
+        _, peak = tracemalloc.get_traced_memory()
     finally:
+        tracemalloc.stop()
         hamming.count = original
-    return calls
+    return peak, calls
 
 
 def fmt_time(s):
@@ -99,6 +98,7 @@ KNOWN = {
 def main():
     quick = "--quick" in sys.argv
     print(f"Python {platform.python_version()} on {platform.processor() or platform.machine()}")
+    print(f"count() backend: {hamming.backend}")
 
     # Correctness: every n up to N against Dijkstra, plus known large values
     N = 5000 if quick else 20000
@@ -111,7 +111,7 @@ def main():
         assert hamming.hamming(n) == 2**i * 3**j * 5**k, n
         print(f"hamming({n:,}) = 2^{i} * 3^{j} * 5^{k}  ✓")
 
-    sizes = [10**3, 10**4, 10**5, 10**6, 10**7, 10**8, 10**9]
+    sizes = [10**3, 10**4, 10**5, 10**6, 10**7, 10**8, 10**9, 10**10, 10**11]
     if quick:
         sizes = sizes[:5]
     dijkstra_max = 10**6 if quick else 10**7
@@ -120,14 +120,13 @@ def main():
     print("| n | Digits | Logarithmic | count() calls | Peak memory | Dijkstra | Dijkstra peak memory |")
     print("| ---: | ---: | ---: | ---: | ---: | ---: | ---: |")
     for n in sizes:
-        repeats = 5 if n <= 10**7 else 3
+        repeats = 5 if n <= 10**7 else 3 if n < 10**9 else 1
         result, t = timed(hamming.hamming, n, repeats)
-        mem = peak_memory(hamming.hamming, n)
-        calls = count_calls(n)
+        mem, calls = instrumented_run(hamming.hamming, n)
         if n <= dijkstra_max:
             d_result, d_t = timed(dijkstra, n, 3 if n <= 10**6 else 1)
             assert d_result == result
-            d_mem = peak_memory(dijkstra, n)
+            d_mem = instrumented_run(dijkstra, n)[0]
             d_cols = f"{fmt_time(d_t)} | {fmt_bytes(d_mem)}"
         else:
             d_cols = "— | —"
