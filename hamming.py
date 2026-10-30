@@ -56,40 +56,48 @@ def hamming(n):
         B1, C1 = B_next, count(B_next)
 
     # 4. Guarantee that n is trapped inside the band [lo, hi].
+    # C1 = count(B1) is already known, so it supplies one side of the band for free.
     # Steps double so sparse (small n) bands are reached in a few counts.
-    lo, hi = B1 - 1e-8, B1 + 1e-8
-    step = 1e-5
-    below = count(lo)
-    while below >= n:
-        lo -= step
-        step *= 2
+    if C1 >= n:
+        hi = B1
+        lo = B1 - 1e-8
+        step = 1e-5
         below = count(lo)
-    step = 1e-5
-    while count(hi) < n:
-        hi += step
-        step *= 2
+        while below >= n:
+            lo -= step
+            step *= 2
+            below = count(lo)
+    else:
+        lo, below = B1, C1
+        hi = B1 + 1e-8
+        step = 1e-5
+        while count(hi) < n:
+            hi += step
+            step *= 2
 
-    # 5. Extract and sort only the candidate numbers inside the narrow band
+    # 5. Extract and sort only the candidate numbers inside the narrow band.
+    # 3^j * 5^k is built incrementally and only used for cells that hold band members.
     band = []
     k = 0
+    p5 = 1
     rem_k_hi, rem_k_lo = hi, lo
 
     while rem_k_hi >= 0:
-        j = 0
+        p35 = p5
         rem_j_hi, rem_j_lo = rem_k_hi, rem_k_lo
 
         while rem_j_hi >= 0:
-            top_hi = int(rem_j_hi * inv_a + 1e-11) if rem_j_hi >= 0 else -1
+            top_hi = int(rem_j_hi * inv_a + 1e-11)
             top_lo = int(rem_j_lo * inv_a + 1e-11) if rem_j_lo >= 0 else -1
 
-            p35 = (3**j) * (5**k)
             for i in range(top_lo + 1, top_hi + 1):
                 band.append(p35 << i)  # Fast power of 2 via bitwise shift
 
-            j += 1
+            p35 *= 3
             rem_j_hi -= b
             rem_j_lo -= b
 
+        p5 *= 5
         k += 1
         rem_k_hi -= c
         rem_k_lo -= c
