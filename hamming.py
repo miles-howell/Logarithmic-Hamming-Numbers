@@ -21,12 +21,14 @@ def _count_py(B):
     return total
 
 def _band_py(lo, hi):
-    """Hamming numbers with lo < ln(value) <= hi, unsorted."""
+    """(value, (i, j, k)) for Hamming numbers with lo < ln(value) <= hi, unsorted."""
     band = []
+    k = 0
     p5 = 1
     rem_k_hi, rem_k_lo = hi, lo
 
     while rem_k_hi >= 0:
+        j = 0
         p35 = p5
         rem_j_hi, rem_j_lo = rem_k_hi, rem_k_lo
 
@@ -35,12 +37,14 @@ def _band_py(lo, hi):
             top_lo = int(rem_j_lo * inv_a + 1e-11) if rem_j_lo >= 0 else -1
 
             for i in range(top_lo + 1, top_hi + 1):
-                band.append(p35 << i)  # Fast power of 2 via bitwise shift
+                band.append((p35 << i, (i, j, k)))  # Fast power of 2 via bitwise shift
 
+            j += 1
             p35 *= 3
             rem_j_hi -= b
             rem_j_lo -= b
 
+        k += 1
         p5 *= 5
         rem_k_hi -= c
         rem_k_lo -= c
@@ -51,7 +55,7 @@ try:
     from _hamming_count import count, band_terms
 
     def _band(lo, hi):
-        return [(3**j * 5**k) << i for j, k, i in band_terms(lo, hi)]
+        return [((3**j * 5**k) << i, (i, j, k)) for j, k, i in band_terms(lo, hi)]
 
     backend = "C extension"
 except ImportError:
@@ -61,6 +65,10 @@ except ImportError:
 
 def hamming(n):
     """Calculates the 1-indexed n-th Hamming number using the Secant Method."""
+    return hamming_with_exponents(n)[0]
+
+def hamming_with_exponents(n):
+    """Returns (value, (i, j, k)) with value == 2**i * 3**j * 5**k the n-th Hamming number."""
     if n <= 0:
         raise ValueError("n must be a positive integer.")
 
